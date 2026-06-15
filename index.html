@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Time Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root { 
+            --bg-color: #f2f2f7; --card-bg: #ffffff; --text-color: #1c1c1e; 
+            --text-secondary: #8e8e93; --primary-accent: #007aff; 
+            --success-accent: #34c759; --border-color: #e5e5ea; --highlight: #f0f8ff;
+            --tab-bg: rgba(255, 255, 255, 0.9);
+        }
+        @media (prefers-color-scheme: dark) { 
+            :root { 
+                --bg-color: #000000; --card-bg: #1c1c1e; --text-color: #ffffff; 
+                --text-secondary: #aeaeb2; --primary-accent: #0a84ff; 
+                --success-accent: #30d158; --border-color: #38383a; --highlight: #1a2a3a;
+                --tab-bg: rgba(28, 28, 30, 0.9);
+            } 
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { 
+            font-family: -apple-system, sans-serif; background: var(--bg-color); color: var(--text-color); 
+            /* Added bottom padding to account for the tab bar and iPhone home indicator */
+            padding: calc(44px + env(safe-area-inset-top)) 16px calc(80px + env(safe-area-inset-bottom)) 16px; 
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        }
+        
+        .container { width: 100%; max-width: 500px; display: none; flex-direction: column; gap: 16px; }
+        .container.active { display: flex; } /* Toggles visibility */
+
+        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h2 { font-size: 1.2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 12px; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 12px; }
+        .header-row h2 { border: none; padding: 0; margin: 0; }
+        
+        /* Input Styles */
+        input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); font-size: 1rem; outline: none; margin-bottom: 16px; }
+        input:disabled { opacity: 0.6; }
+        .button-group { display: flex; gap: 12px; }
+        button { flex: 1; padding: 14px; border-radius: 8px; border: none; font-size: 1rem; font-weight: 600; cursor: pointer; }
+        button:disabled { opacity: 0.3; }
+        .btn-start { background: var(--primary-accent); color: white; }
+        .btn-finish { background: var(--success-accent); color: white; }
+        .btn-export { width: 25%; padding: 6px 0; font-size: 0.85rem; background: var(--card-bg); color: var(--primary-accent); border: 1px solid var(--primary-accent); border-radius: 8px; }
+
+        /* Filter Styles */
+        .filter-panel { display: flex; flex-direction: column; gap: 10px; background: var(--highlight); padding: 12px; border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border-color); }
+        .filter-row { display: flex; gap: 8px; align-items: center; }
+        .filter-row label { font-size: 0.8rem; font-weight: 600; width: 45px; color: var(--text-secondary); }
+        input[type="datetime-local"] { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-size: 0.9rem; }
+        .filter-actions { display: flex; gap: 8px; margin-top: 4px; }
+        .filter-actions button { padding: 8px; border-radius: 6px; font-size: 0.9rem; }
+        .btn-apply { background: var(--primary-accent); color: white; }
+        .btn-clear { background: transparent; color: var(--text-color); border: 1px solid var(--border-color); }
+
+        /* List Styles */
+        .history-list { display: flex; flex-direction: column; gap: 10px; }
+        .history-item { padding: 12px; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 4px; }
+        .history-item:last-child { border-bottom: none; }
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .item-text { font-weight: 600; font-size: 0.95rem; }
+        .item-duration { font-family: ui-monospace, monospace; font-size: 0.85rem; font-weight: 700; color: var(--primary-accent); background: var(--highlight); padding: 2px 6px; border-radius: 4px; }
+        .item-times { font-size: 0.8rem; color: var(--text-secondary); }
+
+        /* Native iOS Bottom Tab Bar */
+        .tab-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: calc(60px + env(safe-area-inset-bottom));
+            background: var(--tab-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            padding-bottom: env(safe-area-inset-bottom);
+            z-index: 100;
+        }
+        .tab {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: var(--text-secondary); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: none; background: transparent;
+        }
+        .tab.active { color: var(--primary-accent); }
+    </style>
+</head>
+<body>
+
+<div id="loggerView" class="container active">
+    <div class="card">
+        <h2>Log Entry</h2>
+        <input type="text" id="textInput" placeholder="Enter reference string..." autocomplete="off">
+        <div class="button-group">
+            <button id="startBtn" class="btn-start" onclick="startTracking()">Start</button>
+            <button id="finishBtn" class="btn-finish" onclick="finishTracking()" disabled>Finish</button>
+        </div>
+    </div>
+</div>
+
+<div id="viewerView" class="container">
+    <div class="card">
+        <div class="header-row">
+            <h2>Sequence History</h2>
+            <button class="btn-export" onclick="exportToCSV()">Export CSV</button>
+        </div>
+
+        <div class="filter-panel">
+            <div class="filter-row">
+                <label>From</label>
+                <input type="datetime-local" id="filterStart">
+            </div>
+            <div class="filter-row">
+                <label>To</label>
+                <input type="datetime-local" id="filterEnd">
+            </div>
+            <div class="filter-actions">
+                <button class="btn-clear" onclick="clearFilters()">Clear</button>
+                <button class="btn-apply" onclick="applyFilters()">Apply Filter</button>
+            </div>
+        </div>
+
+        <div id="historyList" class="history-list"></div>
+    </div>
+</div>
+
+<div class="tab-bar">
+    <button class="tab active" id="tab-logger" onclick="switchTab('logger')">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:4px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        Logger
+    </button>
+    <button class="tab" id="tab-viewer" onclick="switchTab('viewer')">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:4px;"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+        History
+    </button>
+</div>
+
+<script>
+    // System State Engine
+    let activeSession = null;
+    let filterRange = { start: null, end: null };
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedSession = localStorage.getItem('time_logger_active');
+        if (savedSession) activeSession = JSON.parse(savedSession);
+        checkActiveSession();
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+    });
+
+    // Tab Navigation Logic
+    function switchTab(view) {
+        document.getElementById('loggerView').classList.remove('active');
+        document.getElementById('viewerView').classList.remove('active');
+        document.getElementById('tab-logger').classList.remove('active');
+        document.getElementById('tab-viewer').classList.remove('active');
+
+        if (view === 'logger') {
+            document.getElementById('loggerView').classList.add('active');
+            document.getElementById('tab-logger').classList.add('active');
+        } else {
+            document.getElementById('viewerView').classList.add('active');
+            document.getElementById('tab-viewer').classList.add('active');
+            renderHistory(); // Refresh data every time tab is clicked
+        }
+    }
+
+    // Logger Logic
+    function checkActiveSession() {
+        const inputEl = document.getElementById('textInput');
+        const startBtn = document.getElementById('startBtn');
+        const finishBtn = document.getElementById('finishBtn');
+
+        if (activeSession) {
+            inputEl.value = activeSession.text;
+            inputEl.disabled = true;
+            startBtn.disabled = true;
+            finishBtn.disabled = false;
+        } else {
+            inputEl.disabled = false;
+            startBtn.disabled = false;
+            finishBtn.disabled = true;
+        }
+    }
+
+    function startTracking() {
+        const textVal = document.getElementById('textInput').value.trim();
+        if (!textVal) return;
+        activeSession = { text: textVal, startTime: new Date().toISOString() };
+        localStorage.setItem('time_logger_active', JSON.stringify(activeSession));
+        checkActiveSession();
+    }
+
+    function finishTracking() {
+        if (!activeSession) return;
+        const history = JSON.parse(localStorage.getItem('time_logger_history') || '[]');
+        
+        history.unshift({
+            id: Date.now().toString(),
+            text: activeSession.text,
+            startTime: activeSession.startTime,
+            endTime: new Date().toISOString()
+        });
+
+        localStorage.setItem('time_logger_history', JSON.stringify(history));
+        activeSession = null;
+        localStorage.removeItem('time_logger_active');
+        document.getElementById('textInput').value = '';
+        checkActiveSession();
+    }
+
+    // Viewer Logic
+    function applyFilters() {
+        const startVal = document.getElementById('filterStart').value;
+        const endVal = document.getElementById('filterEnd').value;
+        filterRange.start = startVal ? new Date(startVal).getTime() : null;
+        filterRange.end = endVal ? new Date(endVal).getTime() : null;
+        renderHistory();
+    }
+
+    function clearFilters() {
+        document.getElementById('filterStart').value = '';
+        document.getElementById('filterEnd').value = '';
+        filterRange.start = null;
+        filterRange.end = null;
+        renderHistory();
+    }
+
+    function formatDuration(startMs, endMs) {
+        const diffMs = endMs - startMs;
+        if (diffMs <= 0) return "0s";
+        const h = Math.floor(diffMs / 3600000);
+        const m = Math.floor((diffMs % 3600000) / 60000);
+        const s = Math.floor((diffMs % 60000) / 1000);
+        let parts = [];
+        if (h > 0) parts.push(`${h}h`);
+        if (m > 0 || h > 0) parts.push(`${m}m`);
+        parts.push(`${s}s`);
+        return parts.join(' ');
+    }
+
+    function renderHistory() {
+        const rawHistory = JSON.parse(localStorage.getItem('time_logger_history') || '[]');
+        const listEl = document.getElementById('historyList');
+        
+        const filteredHistory = rawHistory.filter(item => {
+            const itemTime = new Date(item.startTime).getTime();
+            if (filterRange.start && itemTime < filterRange.start) return false;
+            if (filterRange.end && itemTime > filterRange.end) return false;
+            return true;
+        });
+
+        if (filteredHistory.length === 0) {
+            listEl.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:20px; font-size:0.9rem;">No matching logs found.</div>';
+            return;
+        }
+
+        listEl.innerHTML = filteredHistory.map(item => {
+            const startStr = new Date(item.startTime).toLocaleString();
+            const endStr = new Date(item.endTime).toLocaleString();
+            const durationStr = formatDuration(new Date(item.startTime).getTime(), new Date(item.endTime).getTime());
+
+            return `
+                <div class="history-item">
+                    <div class="item-header">
+                        <div class="item-text">${item.text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+                        <div class="item-duration">${durationStr}</div>
+                    </div>
+                    <div class="item-times">Start: ${startStr}</div>
+                    <div class="item-times">Finish: ${endStr}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function exportToCSV() {
+        const rawHistory = JSON.parse(localStorage.getItem('time_logger_history') || '[]');
+        const filteredHistory = rawHistory.filter(item => {
+            const itemTime = new Date(item.startTime).getTime();
+            if (filterRange.start && itemTime < filterRange.start) return false;
+            if (filterRange.end && itemTime > filterRange.end) return false;
+            return true;
+        });
+
+        if (filteredHistory.length === 0) return;
+
+        const headers = ['ID', 'Text Input', 'Start Timestamp', 'Finish Timestamp', 'Duration (Seconds)'];
+        const rows = filteredHistory.map(item => [
+            item.id,
+            `"${item.text.replace(/"/g, '""')}"`,
+            item.startTime,
+            item.endTime,
+            Math.floor((new Date(item.endTime).getTime() - new Date(item.startTime).getTime()) / 1000)
+        ]);
+
+        const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `time_log_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "short_name": "TimeTracker",
+  "name": "Time Tracking Utility",
+  "icons": [
+    {
+      "src": "icon.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#000000",
+  "theme_color": "#007aff",
+  "display": "standalone",
+  "orientation": "portrait"
+}
